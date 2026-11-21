@@ -1,9 +1,8 @@
+
 package com.mario.gtavi
 
 import android.media.MediaPlayer
 import android.os.Bundle
-import android.view.SurfaceHolder
-import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -18,80 +17,102 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Hide ActionBar if it exists
-        supportActionBar?.hide()
-
-        playIntroVideo()
+        hideSystemBars()
+        playIntro()
     }
 
-    private fun playIntroVideo() {
-        val videoView = binding.videoView
-        videoView.visibility = View.VISIBLE
-        
-        // Make it full screen
+    private fun hideSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, binding.root).let { controller ->
+
+        WindowInsetsControllerCompat(
+            window,
+            window.decorView
+        ).let { controller ->
             controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
 
+    private fun playIntro() {
         try {
-            val assetFileName = "GTAVI.mp4"
-            val afd = assets.openFd(assetFileName)
-            mediaPlayer = MediaPlayer()
-            mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
+            val videoFile = assets.openFd("GTAVI.mp4")
 
-            videoView.holder.addCallback(object : SurfaceHolder.Callback {
-                override fun surfaceCreated(holder: SurfaceHolder) {
-                    mediaPlayer?.setDisplay(holder)
-                    mediaPlayer?.prepare()
-                    mediaPlayer?.start()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(
+                    videoFile.fileDescriptor,
+                    videoFile.startOffset,
+                    videoFile.length
+                )
+
+                setOnPreparedListener { player ->
+                    player.start()
                 }
-                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-                override fun surfaceDestroyed(holder: SurfaceHolder) {}
-            })
 
-            mediaPlayer?.setOnCompletionListener {
-                showCrashPopup()
+                setOnCompletionListener {
+                    releasePlayer()
+                    showCrashPopup()
+                }
+
+                setOnErrorListener { _, _, _ ->
+                    releasePlayer()
+                    showCrashPopup()
+                    true
+                }
+
+                prepareAsync()
             }
+
+            videoFile.close()
+
+            binding.videoView.setOnCompletionListener {
+                // Completion is handled by MediaPlayer.
+            }
+
         } catch (e: Exception) {
-            e.printStackTrace()
+            releasePlayer()
             showCrashPopup()
         }
     }
 
     private fun showCrashPopup() {
-        val errors = listOf(
-            "ERR_GFX_D3D_INIT: Failed to initialize graphics driver.",
-            "OUT_OF_MEMORY: System heap exhausted while allocating 4GB for texture streaming.",
-            "GPU_TIMEOUT: The graphics processor has stopped responding.",
-            "CRITICAL_EXCEPTION: Illegal memory access at 0x00007FF7B3C2.",
-            "VRAM_OVERFLOW: Video memory limit exceeded. 12288MB requested.",
-            "THREAD_STUCK_IN_DEVICE_DRIVER: A fatal hardware error occurred."
-        ).shuffled()
+        if (isFinishing || isDestroyed) return
 
-        val errorMessage = "GTA VI has encountered a critical error and needs to close.\n\n" +
-                "Error Codes:\n" + errors.take(3).joinToString("\n") +
-                "\n\nPress OK to exit and restart your device."
+        val message = """
+            
+            💀 AREY BHAI! TU PRANK HO GAYA!
+            
+            You thought you were entering GTA VI?
+            
+            SAPNA TOOT GAYA! 😂
+            
+            NO GAME. NO MISSION.
+            ONLY KALESH.
+            
+            🔥 PRANK COMPLETE 🔥
+        """.trimIndent()
 
         AlertDialog.Builder(this)
-            .setTitle("Grand Theft Auto VI - Fatal Error")
-            .setMessage(errorMessage)
+            .setTitle("GRAND THEFT INDIA\nMISSION FAILED!")
+            .setMessage(message)
             .setCancelable(false)
-            .setPositiveButton("OK") { _, _ ->
+            .setPositiveButton("PRANK COMPLETE 😂") { _, _ ->
                 finishAffinity()
-                System.exit(0)
             }
             .show()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    private fun releasePlayer() {
         mediaPlayer?.release()
         mediaPlayer = null
+    }
+
+    override fun onDestroy() {
+        releasePlayer()
+        super.onDestroy()
     }
 }
