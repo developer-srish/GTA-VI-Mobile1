@@ -43,13 +43,20 @@ jobs:
 
           "$SDKMANAGER" --channel=3 --install \
             "platform-tools" \
-            "platforms;android-37" \
-            "build-tools;37.0.0"
+            "platforms;android-37.0"
+
+          if [ ! -d "$ANDROID_HOME/platforms/android-37.0" ]; then
+            echo "Android 17 SDK installation failed"
+            exit 1
+          fi
+
+          ln -sfn "$ANDROID_HOME/platforms/android-37.0" \
+            "$ANDROID_HOME/platforms/android-37"
 
       - name: Prepare Gradle
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Build Debug APK
         run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
